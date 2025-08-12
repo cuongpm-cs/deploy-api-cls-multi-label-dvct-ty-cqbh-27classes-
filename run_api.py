@@ -36,7 +36,8 @@ def load_model(model_path: str, num_labels: int):
     model = AutoModelForSequenceClassification.from_pretrained(
         model_path,
         num_labels=num_labels,
-        problem_type="multi_label_classification"
+        problem_type="multi_label_classification",
+        torch_dtype=torch.float16,
     ).to(device)
     model.eval()
     return tokenizer, model
@@ -131,4 +132,4 @@ async def classify_document(payload: DocumentRequest):
 # =========================
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8686, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8686, reload=False)
