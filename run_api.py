@@ -26,7 +26,8 @@ app.add_middleware(
 #     MODEL LOADING
 # =========================
 # Load MultiLabel Binarizer for decoding predictions
-mlb = joblib.load('mlb.pkl')
+mlb_dvct = joblib.load('mlb_dvct.pkl')
+mlb_dvph = joblib.load('mlb_dvph.pkl')
 
 def load_model(model_path: str, num_labels: int):
     """
@@ -46,10 +47,12 @@ def load_model(model_path: str, num_labels: int):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load the trained model and tokenizer
-MODEL_PATH = 'phobert-base-v2-pretrained-cls-dvct'
+MODEL_PATH_DVCT = 'phobert-base-v2-pretrained-cls-dvct'
+MODEL_PATH_DVPH = 'xlm-roberta-base-pretrained-cls-dvph'
 NUM_LABELS = 27
 
-tokenizer, model = load_model(MODEL_PATH, NUM_LABELS)
+tokenizer_dvct, model_dvct = load_model(MODEL_PATH_DVCT, NUM_LABELS)
+tokenizer_dvph, model_dvph = load_model(MODEL_PATH_DVPH, NUM_LABELS)
 
 # =========================
 #     TEXT PREPROCESSING
@@ -70,7 +73,7 @@ def normalize_text(text: str) -> str:
 # =========================
 #     INFERENCE LOGIC
 # =========================
-def predict_labels(model, tokenizer, input_text: str, max_length: int = 128):
+def predict_labels(model, tokenizer, mlb, input_text: str, max_length: int = 128):
     """
     Predict labels using the loaded model and tokenizer.
     Returns decoded label list.
@@ -110,8 +113,8 @@ class DocumentResponse(BaseModel):
 # =========================
 #     API ENDPOINT
 # =========================
-@app.post("/classify", response_model=DocumentResponse)
-async def classify_document(payload: DocumentRequest):
+@app.post("/classify_dvct", response_model=DocumentResponse)
+async def classify_document_dvct(payload: DocumentRequest):
     """
     Classify document based on summary and issuing agency.
     """
@@ -123,7 +126,24 @@ async def classify_document(payload: DocumentRequest):
     normalized_context = normalize_text(context)
 
     # Run inference
-    labels = predict_labels(model, tokenizer, normalized_context)
+    labels = predict_labels(model_dvct, tokenizer_dvct, mlb_dvct, normalized_context)
+
+    return DocumentResponse(labels=labels)
+
+@app.post("/classify_dvph", response_model=DocumentResponse)
+async def classify_document_dvph(payload: DocumentRequest):
+    """
+    Classify document based on summary and issuing agency.
+    """
+    summary = payload.summary
+    agency = payload.issuing_agency
+
+    # Construct context for classification
+    context = f"{summary} do cơ quan {agency} ban hành"
+    normalized_context = normalize_text(context)
+
+    # Run inference
+    labels = predict_labels(model_dvph, tokenizer_dvph, mlb_dvph,  normalized_context)
 
     return DocumentResponse(labels=labels)
 
@@ -132,4 +152,4 @@ async def classify_document(payload: DocumentRequest):
 # =========================
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8686, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8888, reload=False)
