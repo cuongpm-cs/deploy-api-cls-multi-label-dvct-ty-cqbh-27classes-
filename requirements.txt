@@ -5,3 +5,4 @@ joblib
 fastapi
 uvicorn
 sentencepiece
+scikit-learn==1.2.2
